@@ -10,10 +10,11 @@ from einops import rearrange
 
 from constants import DT
 from constants import PUPPET_GRIPPER_JOINT_OPEN
-from utils import load_data # data functions
-from utils import sample_box_pose, sample_insertion_pose # robot functions
-from utils import compute_dict_mean, set_seed, detach_dict # helper functions
-from policy import ACTPolicy, CNNMLPPolicy
+### yoseph ###
+from utils_yoseph_v5 import load_data # data functions
+from utils_yoseph_v5 import sample_box_pose, sample_insertion_pose # robot functions
+from utils_yoseph_v5 import compute_dict_mean, set_seed, detach_dict # helper functions
+from policy_yoseph_v5 import ACTPolicy, CNNMLPPolicy
 from visualize_episodes import save_videos
 
 from sim_env import BOX_POSE
@@ -25,26 +26,32 @@ def main(args):
     set_seed(1)
     # command line parameters
     is_eval = args['eval'] # False
-    ckpt_dir = args['ckpt_dir'] # '/data2/act/ckpt'
+    ckpt_dir = args['ckpt_dir'] # '/data2/act/ckpt/fold_v3'
     policy_class = args['policy_class'] # 'ACT'
     onscreen_render = args['onscreen_render'] # False
-    task_name = args['task_name'] # 'sim_transfer_cube_scripted'
+    task_name = args['task_name'] # 'fold_v3'
     batch_size_train = args['batch_size'] # 8
     batch_size_val = args['batch_size'] # 8
     num_epochs = args['num_epochs'] # 2000
 
-    # get task parameters
-    is_sim = task_name[:4] == 'sim_' # True
-    if is_sim:
-        from constants import SIM_TASK_CONFIGS
-        task_config = SIM_TASK_CONFIGS[task_name]
-    else:
-        from aloha_scripts.constants import TASK_CONFIGS
-        task_config = TASK_CONFIGS[task_name]
-    dataset_dir = task_config['dataset_dir'] # '/data2/act/dataset/sim_transfer_cube_scripted'
-    num_episodes = task_config['num_episodes'] # 50
-    episode_len = task_config['episode_len'] # 400
-    camera_names = task_config['camera_names'] # ['top']... 나중에 고쳐야겠다...!
+    # # get task parameters
+    # is_sim = task_name[:4] == 'sim_' # True
+    # if is_sim:
+    #     from constants import SIM_TASK_CONFIGS
+    #     task_config = SIM_TASK_CONFIGS[task_name]
+    # else:
+    #     from aloha_scripts.constants import TASK_CONFIGS
+    #     task_config = TASK_CONFIGS[task_name]
+    # dataset_dir = task_config['dataset_dir'] # '/data2/act/dataset/sim_transfer_cube_scripted'
+    # num_episodes = task_config['num_episodes'] # 50
+    # episode_len = task_config['episode_len'] # 400
+    # camera_names = task_config['camera_names'] # ['top']... 나중에 고쳐야겠다...!
+
+    ### yoseph ###
+    dataset_dir = '/home/dunoran/garment/yoseph/dataset'
+    num_episodes = 30
+    camera_names = ['front', 'left', 'right']
+    ### yoseph ###
 
     # fixed parameters
     state_dim = 14
@@ -55,8 +62,11 @@ def main(args):
         dec_layers = 7
         nheads = 8
         policy_config = {'lr': args['lr'], # 1e-05
-                         'num_queries': args['chunk_size'], # 100
+                         'num_queries': args['chunk_size'], # 50
                          'kl_weight': args['kl_weight'], # 10
+                         ### yoseph ###
+                        #  'stage_loss_weight': args['stage_loss_weight'],
+                         ### yoseph ###
                          'hidden_dim': args['hidden_dim'], # 512
                          'dim_feedforward': args['dim_feedforward'], # 3200
                          'lr_backbone': lr_backbone, # 1e-05
@@ -75,7 +85,7 @@ def main(args):
     config = {
         'num_epochs': num_epochs, # 2000
         'ckpt_dir': ckpt_dir, 
-        'episode_len': episode_len, # 400
+        # 'episode_len': episode_len, # 400
         'state_dim': state_dim, # 14
         'lr': args['lr'],
         'policy_class': policy_class,
@@ -84,8 +94,8 @@ def main(args):
         'task_name': task_name,
         'seed': args['seed'],
         'temporal_agg': args['temporal_agg'], # temporal_agg option도 있네... 흐음...
-        'camera_names': camera_names, # ['top']
-        'real_robot': not is_sim
+        'camera_names': camera_names, # ['front', 'left', 'right']
+        # 'real_robot': not is_sim
     }
 
     if is_eval:
@@ -100,8 +110,8 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val) # read utils.py
-    # stats['action_mean'] (14), stats['action_std'] (14), stats['qpos_mean'] (14), stats['qpos_std'] (14), stats['example_qpos'] (400, 14)
+    train_dataloader, val_dataloader, stats = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val) 
+    # stats['action_mean'] (14), stats['action_std'] (14), stats['qpos_mean'] (14), stats['qpos_std'] (14)
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
         os.makedirs(ckpt_dir)
@@ -312,12 +322,47 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
     return success_rate, avg_return
 
-
+### yoseph ###
+# def forward_pass(data, policy):
+#     image_data, qpos_data, action_data, is_pad = data # (B, 1, 3, 480, 640), (B, 14), (B, 400, 14), (B, 400)
+#     image_data, qpos_data, action_data, is_pad = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
+#     return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
 def forward_pass(data, policy):
-    image_data, qpos_data, action_data, is_pad = data # (B, 1, 3, 480, 640), (B, 14), (B, 400, 14), (B, 400)
-    image_data, qpos_data, action_data, is_pad = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
-    return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
+    (
+        image_data,
+        qpos_data,
+        action_data,
+        is_pad,
+        # env_pcd_data,
+        # garment_pcd_data,
+        # stage_data,           # output label: current scene stage
+        # previous_stage_data,  # input condition: previous predicted stage
+        # affordance_score_data,
+    ) = data
 
+    image_data = image_data.cuda() # (B, 3, 3, 480, 640)
+    qpos_data = qpos_data.cuda() # (B, 14)
+    action_data = action_data.cuda() # (B, max_epi_len, 14)
+    is_pad = is_pad.cuda() # (B, max_epi_len)
+
+    # env_pcd_data = env_pcd_data.cuda() # (B, 2048, 3)
+    # garment_pcd_data = garment_pcd_data.cuda() # (B, 2048, 3)
+    # stage_data = stage_data.cuda() # (B)
+    # previous_stage_data = previous_stage_data.cuda() # (B)
+    # affordance_score_data = affordance_score_data.cuda() # (B, 4, 2048)
+
+    return policy(
+        qpos=qpos_data,
+        image=image_data,
+        # env_pcd=env_pcd_data,
+        # garment_pcd=garment_pcd_data,
+        # stage_input=previous_stage_data,
+        # stage_label=stage_data,
+        # affordance_score=affordance_score_data,
+        actions=action_data,
+        is_pad=is_pad,
+    )
+### yoseph ###
 
 def train_bc(train_dataloader, val_dataloader, config):
     num_epochs = config['num_epochs']
@@ -427,6 +472,9 @@ if __name__ == '__main__':
 
     # for ACT
     parser.add_argument('--kl_weight', action='store', type=int, help='KL Weight', required=False)
+    ### yoseph ###
+    # parser.add_argument('--stage_loss_weight', type=float, default=0.1)
+    ### yoseph ###
     parser.add_argument('--chunk_size', action='store', type=int, help='chunk_size', required=False)
     parser.add_argument('--hidden_dim', action='store', type=int, help='hidden_dim', required=False)
     parser.add_argument('--dim_feedforward', action='store', type=int, help='dim_feedforward', required=False)
