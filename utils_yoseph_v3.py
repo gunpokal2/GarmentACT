@@ -119,8 +119,10 @@ def get_max_epi_len(dataset_dir, num_episodes):
 
 def get_norm_stats(dataset_dir, num_episodes):
     ### must be changed ###
+    # ENV_PCD_MIN = np.array([-0.54, -0.27, 0.002], dtype=np.float32)
+    # ENV_PCD_MAX = np.array([0.54, 0.27, 0.486], dtype=np.float32)
     ENV_PCD_MIN = np.array([-0.54, -0.27, 0.002], dtype=np.float32)
-    ENV_PCD_MAX = np.array([0.54, 0.27, 0.486], dtype=np.float32)
+    ENV_PCD_MAX = np.array([0.51, 0.29, 0.475], dtype=np.float32)
     ### must be changed ###
     all_qpos_data = []
     all_action_data = []

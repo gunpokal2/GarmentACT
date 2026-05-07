@@ -48,8 +48,8 @@ def main(args):
     # camera_names = task_config['camera_names'] # ['top']... 나중에 고쳐야겠다...!
 
     ### yoseph ###
-    dataset_dir = '/home/dunoran/garment/yoseph/dataset'
-    num_episodes = 30
+    dataset_dir = '/home/dunoran/garment/yoseph/dataset_v3'
+    num_episodes = 200
     camera_names = ['front', 'left', 'right']
     ### yoseph ###
 
